@@ -1,0 +1,12 @@
+# Normalize to LF. Upstream Envoy entrypoint scripts fail under CRLF on Windows checkouts.
+* text=auto eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sql text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.html text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

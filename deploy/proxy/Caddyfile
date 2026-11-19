@@ -1,0 +1,53 @@
+# Lumo Base TLS ingress — Caddy
+# Deployed as a separate container/host process. 443 is the ONLY public port.
+# Env vars come from deploy/env/.env (PROXY_DOMAIN, API_GW_HTTP_PORT).
+# Docs: https://supabase.com/docs/guides/self-hosting/self-hosted-proxy-https
+#
+# Do not expose 8000, 5432 or 6543 here or anywhere else. They are bound to
+# 127.0.0.1 by deploy/compose/docker-compose.lumo.yml.
+
+{
+	# Keep Caddy's admin API off the network.
+	admin off
+	# Let's Encrypt certificate notifications are not configured here;
+	# Caddy manages certificates automatically for {$PROXY_DOMAIN}.
+	email {$CERTBOT_EMAIL:}
+}
+
+{$PROXY_DOMAIN} {
+	encode zstd gzip
+
+	# Hardening headers. HSTS is enabled only after TLS is confirmed working.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# Studio (Dashboard) is reached through the SAME gateway and is protected by
+	# DASHBOARD_USERNAME / DASHBOARD_PASSWORD HTTP basic auth in the Envoy config.
+	# It is intentionally NOT a separate public host.
+	reverse_proxy 127.0.0.1:{$API_GW_HTTP_PORT:8000} {
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {host}
+	}
+
+	log {
+		output file /var/log/caddy/lumo-base.log {
+			roll_size 10MiB
+			roll_keep 3
+			roll_compress
+		}
+		format console
+	}
+}
+
+# Plain HTTP is redirected by Caddy automatically. Do NOT add an :8000 listener.
+# Firewall reference (ufw):
+#   ufw allow 22/tcp   # SSH, restricted to operator IPs
+#   ufw allow 80/tcp   # ACME HTTP-01 challenge
+#   ufw allow 443/tcp  # public HTTPS
+#   ufw deny 8000/tcp; ufw deny 5432/tcp; ufw deny 6543/tcp
+#   ufw enable

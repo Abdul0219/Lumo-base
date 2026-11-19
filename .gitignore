@@ -1,0 +1,56 @@
+# Secrets and generated artifacts — never commit these
+.env
+.env.*
+!.env.example
+deploy/env/.env
+deploy/env/.env.local
+deploy/env/*.local
+*.pem
+*.key
+*.p12
+*.pfx
+*.jwk
+*.jsonl
+secrets/
+.secrets/
+credentials*
+
+# Upstream fetched configuration (recreate with scripts/sync-upstream.sh)
+vendor/
+deploy/upstream/volumes/
+deploy/upstream/*.local
+
+# Runtime state
+volumes/db/data/
+volumes/storage/
+volumes/api/*.log
+*.log
+logs/
+
+# Backups (must live off the VPS, never in git)
+backups/
+*.dump
+*.dump.gz
+*.sql.gz
+*.tar.gz
+*.age
+*.gpg
+
+# Dependencies / test artifacts
+node_modules/
+tests/integration/.env
+tests/integration/coverage/
+playwright-report/
+.pytest_cache/
+__pycache__/
+*.pyc
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Compose override that holds real local values
+docker-compose.override.local.yml

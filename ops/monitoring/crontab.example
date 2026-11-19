@@ -1,0 +1,14 @@
+# Lumo Base cron example (install on the VPS during Phase 1/8, after approval)
+# Secrets come from a root-owned env file, never from this repo.
+# SHELL=/bin/bash
+# PATH=/usr/local/bin:/usr/bin:/bin
+# LUMO_ROOT=/srv/lumo-base
+# LUMO_DISK_ALERT_PCT=80
+# LUMO_BACKUP_DESTINATION=remote:lumo-base
+# LUMO_BACKUP_ENCRYPTION_KEY=/etc/lumo-base/backup.age.pub
+
+*/5   * * * *  sh /srv/lumo-base/ops/monitoring/healthcheck.sh >> /var/log/lumo-health.log 2>&1
+0     * * * *  sh /srv/lumo-base/ops/monitoring/disk-alert.sh >> /var/log/lumo-disk.log 2>&1
+15    2 * * *  sh /srv/lumo-base/ops/backup/backup-db.sh >> /var/log/lumo-backup-db.log 2>&1
+40    2 * * *  sh /srv/lumo-base/ops/backup/backup-storage.sh >> /var/log/lumo-backup-storage.log 2>&1
+30    3 * * 1  sh /srv/lumo-base/ops/backup/restore-drill.sh >> /var/log/lumo-restore-drill.log 2>&1

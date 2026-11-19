@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "manifest_version": 1,
+  "project": "lumo-base",
+  "stage": "A",
+  "billing": "none - free for all internal use; monetization explicitly deferred",
+  "upstream": {
+    "repository": "https://github.com/supabase/supabase",
+    "release_tag": "self-hosted/v0.8.4",
+    "configuration_source": "docker/docker-compose.yml",
+    "env_reference": "docker/.env.example",
+    "license": "Apache-2.0",
+    "fetched_at": "2026-11-18",
+    "vendored_copy": "deploy/compose/upstream.docker-compose.yml"
+  },
+  "digest_policy": "Pin every image to an immutable digest before production. digest is null until 'docker compose pull' has been run and the digest recorded by scripts/verify-manifest.sh --record-digests. Never use floating latest tags.",
+  "images": [
+    { "service": "db",         "image": "supabase/postgres",        "tag": "17.6.1.136",               "digest": null, "state": "enabled" },
+    { "service": "auth",       "image": "supabase/gotrue",          "tag": "v2.197.0",                "digest": null, "state": "enabled" },
+    { "service": "rest",       "image": "postgrest/postgrest",      "tag": "v14.18",                  "digest": null, "state": "enabled" },
+    { "service": "api-gw",     "image": "envoyproxy/envoy",         "tag": "v1.39.6",                 "digest": null, "state": "enabled" },
+    { "service": "storage",    "image": "supabase/storage-api",     "tag": "v1.89.12",                "digest": null, "state": "enabled" },
+    { "service": "studio",     "image": "supabase/studio",          "tag": "2026.11.02-sha-a05e7ec",  "digest": null, "state": "enabled" },
+    { "service": "meta",       "image": "supabase/postgres-meta",   "tag": "v0.100.0",                "digest": null, "state": "enabled" },
+    { "service": "supavisor",  "image": "supabase/supavisor",       "tag": "2.9.13",                  "digest": null, "state": "enabled" },
+    { "service": "realtime",   "image": "supabase/realtime",        "tag": "v2.148.3",                "digest": null, "state": "deferred", "reason": "optional; enable only when an app needs it and the VPS can support it" },
+    { "service": "functions",  "image": "supabase/edge-runtime",    "tag": "v1.77.9",                 "digest": null, "state": "deferred", "reason": "optional; enable only when an app needs it and the VPS can support it" },
+    { "service": "imgproxy",   "image": "darthsim/imgproxy",        "tag": "v4.0.21",                 "digest": null, "state": "deferred", "reason": "image transforms not required by Stage A apps" }
+  ],
+  "services_enabled": ["db", "auth", "rest", "api-gw", "storage", "studio", "meta", "supavisor", "db-config"],
+  "services_deferred": ["realtime", "functions", "imgproxy", "deno-cache", "analytics", "vector", "logflare", "pg_graphql"],
+  "ports": {
+    "public": [{ "host": 443, "container": 443, "owner": "Caddy TLS ingress", "note": "the only publicly exposed port" }],
+    "loopback_only": [{ "host": "${API_GW_HTTP_PORT:-8000}", "container": 8000, "owner": "api-gw (Envoy)" }, { "host": "${POSTGRES_PORT:-5432}", "container": 5432, "owner": "supavisor session pool" }, { "host": "${POOLER_PROXY_PORT_TRANSACTION:-6543}", "container": 6543, "owner": "supavisor transaction pool" }],
+    "internal_only": [3000, 8080, 9999, 5000, 4000]
+  },
+  "client_sdk": {
+    "name": "@supabase/supabase-js",
+    "version": "2.119.1",
+    "verified_from": "https://registry.npmjs.org/@supabase%2Fsupabase-js/latest (2026-11-18)",
+    "policy": "Pin and re-run tests/integration before bumping. Compatibility claims require passing conformance tests."
+  },
+  "compose_requirement": ">= 2.24.4 (the override uses the !override YAML tag to replace upstream port bindings)",
+  "upgrade_notes": [
+    "Read the upstream release notes for the target self-hosted tag before changing release_tag.",
+    "Diff the new upstream docker-compose.yml and .env.example against the vendored copies.",
+    "Update this manifest, docs/VERSIONS.md and the compatibility matrix together.",
+    "Run scripts/verify-manifest.sh, then re-run integration and security tests in staging.",
+    "Record the rollback tag and restore point before applying."
+  ]
+}

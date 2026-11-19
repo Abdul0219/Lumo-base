@@ -1,0 +1,99 @@
+name: Lumo Base CI
+
+# Repository hygiene only. This workflow NEVER deploys, provisions a VPS,
+# changes DNS, spends money or starts containers.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate JSON and YAML syntax
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import json, pathlib, yaml
+
+          # Docker Compose supports the !override / !reset YAML tags (Compose >= 2.24.4).
+          # Register them so a generic YAML syntax check does not false-positive.
+          def compose_tag(loader, node):
+              if isinstance(node, yaml.SequenceNode):  return loader.construct_sequence(node)
+              if isinstance(node, yaml.MappingNode):  return loader.construct_mapping(node)
+              return loader.construct_scalar(node)
+          for tag in ('!override', '!reset'):
+              yaml.SafeLoader.add_constructor(tag, compose_tag)
+
+          for p in pathlib.Path('.').rglob('*.json'):
+              if '.git' in p.parts or 'node_modules' in p.parts: continue
+              json.load(open(p, encoding='utf-8')); print('json OK', p)
+          for p in list(pathlib.Path('.').rglob('*.yml')) + list(pathlib.Path('.').rglob('*.yaml')):
+              if '.git' in p.parts: continue
+              yaml.safe_load(open(p, encoding='utf-8')); print('yaml OK', p)
+          PY
+
+      - name: Shell syntax
+        run: |
+          set -e
+          for f in $(find scripts ops tests -name '*.sh' -type f); do bash -n "$f"; echo "bash OK $f"; done
+
+      - name: JavaScript syntax
+        run: node --check tests/integration/supabase-compat.test.mjs
+
+      - name: Version manifest parity
+        run: bash scripts/verify-manifest.sh
+
+      - name: Secret hygiene
+        run: bash scripts/check-secrets.sh
+
+      - name: Free-scope guard (no billing/pricing section)
+        run: |
+          set -e
+          # Deferral notes are allowed; an actual pricing/billing/plans SECTION is not.
+          if grep -rniE '^#{1,4} .*(billing|pricing|plans|tiers|payment|subscription|checkout|invoice)' docs/ web/ README.md; then
+            echo "FAIL: billing/pricing section found"; exit 1
+          fi
+          if grep -rniE '<section[^>]*(billing|pricing|plan|tier|payment|checkout)' web/index.html; then
+            echo "FAIL: commerce section in console"; exit 1
+          fi
+          echo "OK: no billing/pricing sections"
+
+      - name: Console is offline and self-contained
+        run: |
+          set -e
+          test -f web/index.html
+          if grep -nE '<(link|script)[^>]+https?://|@import|url\(http' web/index.html; then
+            echo "FAIL: external dependency in console"; exit 1
+          fi
+          grep -q '<!DOCTYPE html>' web/index.html
+          grep -q 'charset=' web/index.html
+          echo "OK: standalone offline console"
+
+      - name: RLS is enabled on every application table
+        run: |
+          set -e
+          python3 - <<'PY'
+          import pathlib, re, sys
+          sql = pathlib.Path('database/migrations/20261118000100_app_schema.sql').read_text()
+          tables = re.findall(r'create table if not exists app\.(\w+)', sql)
+          assert tables, 'no app tables found'
+          for t in tables:
+              assert re.search(r'alter table app\.'+t+r'\s+enable row level security', sql), f'RLS missing on {t}'
+              print('RLS enabled:', t)
+          PY
+
+      - name: Install conformance dependencies (no tests run without a live stack)
+        run: cd tests/integration && npm ci --ignore-scripts

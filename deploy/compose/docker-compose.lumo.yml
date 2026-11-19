@@ -1,0 +1,97 @@
+# Lumo Base override — applied ON TOP of the official upstream compose.
+# NEVER edit deploy/compose/upstream.docker-compose.yml (vendored, pinned).
+# Usage (scripts/lumo.sh does this for you):
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.lumo.yml docker compose up -d --wait
+# Requires Docker Compose >= 2.24.4 for the !override YAML tag.
+#
+# What this override changes, and why:
+#   1. Binds upstream's publicly-exposed ports to 127.0.0.1 only.
+#   2. Gates optional services behind the "optional" compose profile (v1 = minimal).
+#   3. Adds per-container memory limits for the 4 GB VPS budget.
+#   4. Adds json-file log rotation to every long-running service.
+#   5. Names the project so `docker compose ps` is unambiguous.
+# It does NOT rewrite any upstream service, image, env var, volume or entrypoint.
+
+name: lumo-base
+
+x-lumo-logging: &lumo-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    compress: "true"
+
+services:
+
+  # ---- enabled: core data plane + private admin -------------------------------
+  db:
+    mem_limit: 1024M
+    logging: *lumo-logging
+
+  supavisor:
+    # Upstream binds 5432 and 6543 on all interfaces. Loopback only.
+    ports: !override
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432/tcp"
+      - "127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION:-6543}:6543/tcp"
+    mem_limit: 256M
+    logging: *lumo-logging
+
+  auth:
+    mem_limit: 192M
+    logging: *lumo-logging
+
+  rest:
+    mem_limit: 192M
+    logging: *lumo-logging
+
+  storage:
+    mem_limit: 256M
+    logging: *lumo-logging
+
+  api-gw:
+    # Upstream binds 8000 on all interfaces. Only Caddy (443) is public.
+    ports: !override
+      - "127.0.0.1:${API_GW_HTTP_PORT:-${KONG_HTTP_PORT:-8000}}:8000/tcp"
+    mem_limit: 192M
+    logging: *lumo-logging
+
+  studio:
+    mem_limit: 384M
+    logging: *lumo-logging
+
+  meta:
+    # NOTE: upstream postgres-meta has no healthcheck in this release.
+    # Do not invent one here; health is inferred from studio + rest readiness.
+    mem_limit: 128M
+    logging: *lumo-logging
+
+  db-config:
+    mem_limit: 64M
+    logging: *lumo-logging
+
+  # ---- deferred: opt in with `--profile optional` only after a phase gate -----
+  realtime:
+    profiles: ["optional"]
+    mem_limit: 256M
+    logging: *lumo-logging
+
+  functions:
+    profiles: ["optional"]
+    mem_limit: 512M
+    logging: *lumo-logging
+
+  imgproxy:
+    profiles: ["optional"]
+    mem_limit: 128M
+    logging: *lumo-logging
+
+  deno-cache:
+    profiles: ["optional"]
+    mem_limit: 128M
+    logging: *lumo-logging
+
+# Memory budget (2 vCPU / 4 GB RAM VPS):
+#   enabled containers ~2.6 GB ceiling + OS ~0.7 GB + Caddy ~0.1 GB
+#   leaves ~0.6 GB headroom for backup jobs and page cache.
+# This is a CEILING, not a forecast. Measure with `docker stats` before enabling
+# any optional profile. If sustained usage exceeds ~3.2 GB, move to 8 GB / 4 CPU.
