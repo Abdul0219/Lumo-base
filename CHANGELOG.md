@@ -30,6 +30,28 @@ Billing, pricing, plans, tiers, payment, subscriptions, invoices, quotas, meteri
 - All compatibility rows are `untested — not claimed` until the conformance suite runs against a live stack.
 - RPO/RTO targets await owner decision.
 
+## [0.2.0] - 2026-11-21 — Phase 1 VPS preparation (scripts ready, not yet executed)
+
+### Added
+- **`deploy/vps/harden-os.sh`** — OS hardening: apt update/upgrade, unattended security updates, fail2ban, SSH key-only auth (no root, max 3 tries), NTP time sync, kernel sysctls (IP forwarding off, RP filter, syncookies, source routing off, dmesg restrict, kptr restrict).
+- **`deploy/vps/setup-operator.sh`** — Creates non-root operator user (`lumo`), grants sudo, installs SSH key from `LUMO_OPERATOR_SSH_KEY` env var.
+- **`deploy/vps/configure-firewall.sh`** — UFW: default deny incoming, allow 22 (optionally restricted to operator IPs), 80 (ACME), 443 (HTTPS). Explicitly verifies 8000/5432/6543 are NOT open.
+- **`deploy/vps/install-docker.sh`** — Docker Engine + Compose plugin from official Docker APT repo. Verifies Compose ≥ 2.24.4 (`!override` support). Hardens daemon: log rotation, live-restore, no userland-proxy, no-new-privileges, `icc: false`.
+- **`deploy/vps/verify-phase1.sh`** — Comprehensive acceptance check: OS, updates, SSH hardening (4 checks), fail2ban, UFW (8 checks incl. denied ports), Docker, Compose version, NTP, operator user (4 checks), kernel hardening, no app containers/ports. Produces PASS/WARN/FAIL summary with exit code.
+- **`deploy/vps/README.md`** — Execution order guide, per-script summary, security deltas table, rollback procedure.
+- **`docs/PHASE1.md`** — Phase 1 gate report with all 9 required items: what changed, versions, commands, tests, security checks, limitations, rollback, cost impact, pass/fail decision.
+- CI workflow now includes `deploy/vps` scripts in shell syntax validation.
+
+### Changed
+- `docs/ROADMAP.md` updated: Phase 0 marked ✅ approved, Phase 1 marked ← current position.
+
+### Status
+Scripts are configuration-first and ready to execute on a target Ubuntu LTS VPS. The operator must provision the VPS and run the scripts before Phase 1 acceptance can be verified. No VPS has been provisioned yet.
+
+### Known gaps
+- Same as prior phases: image digests pending `docker compose pull`; `meta`/`db-config` healthcheck gap; compatibility rows untested; RPO/RTO await owner decision.
+- Phase 1 scripts are written but not yet executed against a real VPS — `verify-phase1.sh` must pass on the target host before Phase 2 begins.
+
 ## [0.1.1] - 2026-11-21 — Phase 0 scaffold hardening
 
 ### Added

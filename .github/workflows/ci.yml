@@ -48,7 +48,7 @@ jobs:
       - name: Shell syntax
         run: |
           set -e
-          for f in $(find scripts ops tests -name '*.sh' -type f); do bash -n "$f"; echo "bash OK $f"; done
+          for f in $(find scripts ops tests deploy/vps -name '*.sh' -type f); do bash -n "$f"; echo "bash OK $f"; done
 
       - name: JavaScript syntax
         run: node --check tests/integration/supabase-compat.test.mjs
