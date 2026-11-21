@@ -25,9 +25,10 @@
     { "service": "supavisor",  "image": "supabase/supavisor",       "tag": "2.9.13",                  "digest": null, "state": "enabled" },
     { "service": "realtime",   "image": "supabase/realtime",        "tag": "v2.148.3",                "digest": null, "state": "deferred", "reason": "optional; enable only when an app needs it and the VPS can support it" },
     { "service": "functions",  "image": "supabase/edge-runtime",    "tag": "v1.77.9",                 "digest": null, "state": "deferred", "reason": "optional; enable only when an app needs it and the VPS can support it" },
-    { "service": "imgproxy",   "image": "darthsim/imgproxy",        "tag": "v4.0.21",                 "digest": null, "state": "deferred", "reason": "image transforms not required by Stage A apps" }
+    { "service": "imgproxy",   "image": "darthsim/imgproxy",        "tag": "v4.0.21",                 "digest": null, "state": "deferred", "reason": "image transforms not required by Stage A apps" },
+    { "service": "caddy",      "image": "caddy",                    "tag": "2.8.4",                   "digest": null, "state": "enabled", "note": "TLS ingress; not in upstream compose, pinned separately by the operator" }
   ],
-  "services_enabled": ["db", "auth", "rest", "api-gw", "storage", "studio", "meta", "supavisor", "db-config"],
+  "services_enabled": ["db", "auth", "rest", "api-gw", "storage", "studio", "meta", "supavisor", "db-config", "caddy"],
   "services_deferred": ["realtime", "functions", "imgproxy", "deno-cache", "analytics", "vector", "logflare", "pg_graphql"],
   "ports": {
     "public": [{ "host": 443, "container": 443, "owner": "Caddy TLS ingress", "note": "the only publicly exposed port" }],

@@ -95,5 +95,18 @@ jobs:
               print('RLS enabled:', t)
           PY
 
+      - name: Caddy image is pinned in version manifest
+        run: |
+          set -e
+          python3 - <<'PY'
+          import json
+          lock = json.load(open('deploy/versions.lock.json', encoding='utf-8'))
+          caddy = [e for e in lock['images'] if e['service'] == 'caddy']
+          assert caddy, 'FAIL: caddy not in deploy/versions.lock.json images'
+          e = caddy[0]
+          assert e['tag'] != 'latest', 'FAIL: caddy uses floating latest tag'
+          print(f'OK: caddy pinned at {e["image"]}:{e["tag"]}')
+          PY
+
       - name: Install conformance dependencies (no tests run without a live stack)
         run: cd tests/integration && npm ci --ignore-scripts

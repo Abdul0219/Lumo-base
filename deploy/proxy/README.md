@@ -29,7 +29,7 @@ docker run -d --name lumo-caddy \
   caddy:2
 ```
 
-Pin the Caddy image tag in `deploy/versions.lock.json` before production. `scripts/lumo.sh` does not start Caddy automatically — TLS ingress is a Phase 2 acceptance item and needs explicit approval.
+Pin the Caddy image tag in `deploy/versions.lock.json` before production — it is now recorded there as `caddy:2.8.4`. `scripts/lumo.sh` does not start Caddy automatically — TLS ingress is a Phase 2 acceptance item and needs explicit approval.
 
 ## Operational notes
 

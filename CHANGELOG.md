@@ -29,3 +29,17 @@ Billing, pricing, plans, tiers, payment, subscriptions, invoices, quotas, meteri
 - `meta` and `db-config` have no upstream healthcheck in this release.
 - All compatibility rows are `untested — not claimed` until the conformance suite runs against a live stack.
 - RPO/RTO targets await owner decision.
+
+## [0.1.1] - 2026-11-21 — Phase 0 scaffold hardening
+
+### Added
+- Caddy image (`caddy:2.8.4`) pinned in `deploy/versions.lock.json` and `docs/VERSIONS.md` — previously referenced in docs but missing from the version manifest.
+- `.editorconfig` for consistent formatting across editors and CI.
+- CI step verifying the Caddy image is pinned and not using a floating `latest` tag.
+
+### Changed
+- Web console design-system comment corrected: "Phase 2" → "Phase 0 scaffold" (the console was built as part of the Phase 0 scaffold, not a Phase 2 deliverable).
+- `web/dist/lumo-base-console.html` updated to match `web/index.html`.
+
+### Known gaps
+- Same as 0.1.0: image digests pending `docker compose pull`; `meta`/`db-config` healthcheck gap; compatibility rows untested; RPO/RTO await owner decision.

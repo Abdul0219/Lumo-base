@@ -32,6 +32,9 @@ Single source of truth for what Lumo Base runs. Machine-readable twin: [`deploy/
 | `realtime` | `supabase/realtime` | `v2.148.3` | **deferred** | pending |
 | `functions` | `supabase/edge-runtime` | `v1.77.9` | **deferred** | pending |
 | `imgproxy` | `darthsim/imgproxy` | `v4.0.21` | **deferred** | pending |
+| `caddy` | `caddy` | `2.8.4` | enabled (operator-managed) | pending |
+
+> **Caddy** is not part of the upstream Supabase compose. It is the TLS ingress reverse proxy, pinned separately by the operator. See `deploy/proxy/Caddyfile` and `deploy/proxy/README.md`. Record its digest alongside the upstream images after `docker pull caddy:2.8.4`.
 
 **Digest policy.** Tags alone are not immutable. Before production, run `docker compose pull`, then `sh scripts/verify-manifest.sh --record-digests` to write the resolved `sha256:...` digests into `deploy/versions.lock.json`. Floating `latest` tags are forbidden. Re-record digests on every upgrade.
 

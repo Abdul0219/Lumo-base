@@ -53,7 +53,7 @@ Envoy api-gw (official upstream config; publishable/secret API keys)
 | Analytics / Vector / Logflare | — | **OFF** | Increases resource needs materially |
 | `pg_graphql` | — | **OFF** | No workflow requires GraphQL |
 
-Dependency map verified from the pinned compose: no enabled service depends on a deferred one, so gating them behind the `optional` compose profile is safe.
+Dependency map verified from the pinned compose: no enabled service depends on a deferred one, so gating them behind the `optional` compose profile is safe. Caddy (`caddy:2.8.4`) runs as a separate host process or container — not part of the upstream compose — and is pinned in `deploy/versions.lock.json`.
 
 ## 4. VPS sizing and per-service memory estimate
 
