@@ -8,8 +8,8 @@ Stage A only. **Every phase stops at its gate and waits for explicit approval.**
 | --- | --- | --- |
 | **0** | Discovery & architecture audit | Proposal delivered (`docs/ARCHITECTURE.md`). No code, no install, no deploy. **Stop for approval.** ✅ approved |
 | **1** | VPS preparation | Ubuntu LTS hardened; firewall + SSH restricted; Docker/Compose installed; non-root operator; time sync; basic monitoring; no app services exposed. Test + report. ✅ scripts ready (pending VPS execution) |
-| 2 | Core backend deployment | Minimal pinned service set on private Docker network; HTTPS ingress; only 443 public; health checks pass; all public ports documented. No optional services. ← current position |
-| 3 | Database & authorization | Migrations, roles, GRANTs, RLS applied; positive + negative isolation tests pass (`tests/security/`). |
+| 2 | Core backend deployment | Minimal pinned service set on private Docker network; HTTPS ingress; only 443 public; health checks pass; all public ports documented. No optional services. ✅ scripts ready (pending VPS execution) |
+| 3 | Database & authorization | Migrations, roles, GRANTs, RLS applied; positive + negative isolation tests pass (`tests/security/`). ← current position |
 | 4 | Authentication | GoTrue configured; JWT signing keys with IDs; login, refresh, logout, expiry, invalid signature, rotation and revocation tested. |
 | 5 | Storage | Filesystem backend, buckets, policies, persistence; upload/download/authorization + backup/restore tested. |
 | 6 | Optional capabilities | Realtime / Edge Functions / GraphQL enabled *only* where required and only after a measured memory check; integration tests for each. |

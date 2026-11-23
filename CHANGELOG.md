@@ -30,6 +30,27 @@ Billing, pricing, plans, tiers, payment, subscriptions, invoices, quotas, meteri
 - All compatibility rows are `untested — not claimed` until the conformance suite runs against a live stack.
 - RPO/RTO targets await owner decision.
 
+## [0.4.0] - 2026-11-23 — Phase 3 database & authorization (scripts ready, not yet executed)
+
+### Added
+- **`deploy/database/apply-migrations.sh`** — Applies all 4 SQL files (2 migrations + 2 policy files) in strict order with `ON_ERROR_STOP=1` and `--single-transaction`. Post-apply verification queries RLS status, SECURITY DEFINER function safety, and GRANT summary.
+- **`deploy/database/create-test-users.sh`** — Creates 3 test users (A, B, C) via GoTrue admin API. Never INSERTs into auth.users directly. Handles existing users by fetching UUID. Writes to `/tmp/lumo-test-users.env` (mode 600).
+- **`deploy/database/verify-phase3.sh`** — 30+ acceptance checks across 15 categories: schema, tables+RLS, FORCE RLS, indexes, SECURITY DEFINER safety (search_path + PUBLIC revocation), GRANT verification (anon=0, authenticated=limited, service_role=all), policy completeness (6 by name), anon policy absence, UPDATE USING+WITH CHECK, default privileges, RLS isolation suite.
+- **`deploy/database/README.md`** — Execution order, trust model diagram, full check list, rollback procedure, known gaps.
+
+### Changed
+- `docs/ROADMAP.md` updated: Phase 2 marked scripts-ready, Phase 3 marked ← current position.
+- CI workflow includes `deploy/database` scripts in shell syntax validation.
+
+### Status
+Scripts are ready to execute on a VPS after Phase 2 is verified. The SQL migrations and policies are unchanged from Phase 0 — Phase 3 adds deployment automation and acceptance verification.
+
+### Known gaps
+- HS256 JWT only — asymmetric keys (JWT_KEYS, JWT_JWKS) are Phase 4.
+- Test users are not auto-cleaned — they persist in auth.users for re-use.
+- No Storage-level RLS — bucket policies are Phase 5.
+- auth.uid() claim path must be verified against pinned supabase/postgres init SQL.
+
 ## [0.3.0] - 2026-11-21 — Phase 2 core backend deployment (scripts ready, not yet executed)
 
 ### Added
