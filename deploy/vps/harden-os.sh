@@ -27,7 +27,7 @@ echo "[1/7] updating system packages"
 apt-get update -qq
 apt-get upgrade -y
 apt-get install -y -qq \
-  curl git jq ufw fail2ban unattended-upgrades apt-listbugs \
+  curl git jq ufw fail2ban unattended-upgrades \
   ca-certificates gnupg lsb-release zstd \
   software-properties-common
 
@@ -83,7 +83,9 @@ set_sshd() {
 }
 
 set_sshd PasswordAuthentication no
-set_sshd PermitRootLogin no
+# Allow root via key only until operator is created; setup-operator.sh
+# will switch this to 'no' after verifying operator SSH access works.
+set_sshd PermitRootLogin prohibit-password
 set_sshd PubkeyAuthentication yes
 set_sshd MaxAuthTries 3
 set_sshd LoginGraceTime 30
@@ -93,7 +95,8 @@ set_sshd X11Forwarding no
 
 # Validate before restarting
 sshd -t
-systemctl restart sshd
+# Ubuntu 24.04 uses 'ssh' service name; older versions use 'sshd'
+systemctl restart ssh 2>/dev/null || systemctl restart sshd
 
 # ---------------------------------------------------------------- 5. timezone + NTP
 echo "[5/7] setting timezone and enabling time sync"
@@ -105,8 +108,8 @@ systemctl restart systemd-timesyncd
 # ---------------------------------------------------------------- 6. kernel hardening
 echo "[6/7] applying kernel hardening sysctls"
 cat > /etc/sysctl.d/99-lumo-hardening.conf <<'EOF'
-# Disable IP forwarding (not a router)
-net.ipv4.ip_forward = 0
+# IP forwarding enabled (required by Docker)
+net.ipv4.ip_forward = 1
 # Reverse path filtering
 net.ipv4.conf.all.rp_filter = 1
 net.ipv4.conf.default.rp_filter = 1

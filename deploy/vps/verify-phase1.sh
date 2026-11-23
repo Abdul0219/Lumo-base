@@ -38,8 +38,8 @@ fi
 echo ""
 echo "== Package updates =="
 if command -v apt >/dev/null 2>&1; then
-    UPDATES="$(apt list --upgradable 2>/dev/null | grep -c upgradable || echo 0)"
-    if [ "$UPDATES" -eq 0 ]; then
+    UPDATES="$(apt list --upgradable 2>/dev/null | grep -c upgradable || true)"
+    if [ "${UPDATES:-0}" -eq 0 ] 2>/dev/null; then
         ok "All packages up to date"
     else
         warn "$UPDATES packages have pending updates"
@@ -58,10 +58,17 @@ fi
 echo ""
 echo "== SSH hardening =="
 if command -v sshd >/dev/null 2>&1; then
-    sshd -T 2>/dev/null | grep -q '^passwordauthentication no' && ok "SSH password auth disabled" || fail "SSH password auth still enabled"
-    sshd -T 2>/dev/null | grep -q '^permitrootlogin no' && ok "SSH root login disabled" || fail "SSH root login still enabled"
-    sshd -T 2>/dev/null | grep -q '^pubkeyauthentication yes' && ok "SSH pubkey auth enabled" || fail "SSH pubkey auth not enabled"
-    sshd -T 2>/dev/null | grep -q '^maxauthtries 3' && ok "SSH max auth tries = 3" || warn "SSH max auth tries not set to 3"
+    SSHD_T="$(sshd -T 2>/dev/null)"
+    echo "$SSHD_T" | grep -q '^passwordauthentication no' && ok "SSH password auth disabled" || fail "SSH password auth still enabled"
+    ROOT_LOGIN="$(echo "$SSHD_T" | grep '^permitrootlogin' | awk '{print $2}')"
+    case "$ROOT_LOGIN" in
+        no) ok "SSH root login fully disabled" ;;
+        prohibit-password|without-password) ok "SSH root login key-only ($ROOT_LOGIN)" ;;
+        yes) fail "SSH root login fully enabled (should be restricted)" ;;
+        *) fail "SSH root login unknown state: $ROOT_LOGIN" ;;
+    esac
+    echo "$SSHD_T" | grep -q '^pubkeyauthentication yes' && ok "SSH pubkey auth enabled" || fail "SSH pubkey auth not enabled"
+    echo "$SSHD_T" | grep -q '^maxauthtries 3' && ok "SSH max auth tries = 3" || warn "SSH max auth tries not set to 3"
 else
     warn "sshd not found (not on the VPS?)"
 fi
@@ -100,9 +107,11 @@ echo ""
 echo "== Docker Engine =="
 if command -v docker >/dev/null 2>&1; then
     ok "Docker installed"
-    echo "  $(docker version --format 'Server: {{.ServerVersion}}' 2>/dev/null || echo 'Docker daemon not running')"
-    docker info --format 'Log driver: {{.LoggingDriver}}' 2>/dev/null | xargs echo "  "
-    docker info --format 'Live restore: {{.LiveRestoreEnabled}}' 2>/dev/null | xargs echo "  "
+    DOCKER_VER="$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'unavailable')"
+    echo "  Server: $DOCKER_VER"
+    DOCKER_INFO="$(docker info 2>/dev/null || true)"
+    echo "$DOCKER_INFO" | grep -q 'Logging Driver: json-file' && ok "Log driver: json-file" || warn "Log driver not json-file"
+    echo "$DOCKER_INFO" | grep -q 'Live Restore Enabled: true' && ok "Live restore enabled" || warn "Live restore not enabled"
 else
     fail "Docker not installed"
 fi
@@ -110,10 +119,11 @@ fi
 echo ""
 echo "== Docker Compose =="
 if docker compose version >/dev/null 2>&1; then
-    COMPOSE_VER="$(docker compose version --short 2>/dev/null)"
+    COMPOSE_VER="$(docker compose version --short 2>/dev/null | tr -d 'v')"
     COMPOSE_MAJOR="$(echo "$COMPOSE_VER" | cut -d. -f1)"
     COMPOSE_MINOR="$(echo "$COMPOSE_VER" | cut -d. -f2)"
-    if [ "$COMPOSE_MAJOR" -ge 2 ] && [ "$COMPOSE_MINOR" -ge 24 ]; then
+    # Compose v2.24.4+ supports !override; v5.x+ obviously does too
+    if [ "$COMPOSE_MAJOR" -gt 2 ] || { [ "$COMPOSE_MAJOR" -eq 2 ] && [ "$COMPOSE_MINOR" -ge 24 ]; }; then
         ok "Docker Compose $COMPOSE_VER (>= 2.24.4, !override supported)"
     else
         fail "Docker Compose $COMPOSE_VER (< 2.24.4, !override NOT supported)"
@@ -148,7 +158,7 @@ echo ""
 echo "== Kernel hardening =="
 if [ -f /etc/sysctl.d/99-lumo-hardening.conf ]; then
     ok "Kernel hardening sysctl file present"
-    sysctl net.ipv4.ip_forward 2>/dev/null | grep -q '0' && ok "IP forwarding disabled" || warn "IP forwarding enabled"
+    sysctl net.ipv4.ip_forward 2>/dev/null | grep -q '= 1' && ok "IP forwarding enabled (Docker requirement)" || warn "IP forwarding not enabled"
     sysctl net.ipv4.conf.all.rp_filter 2>/dev/null | grep -q '1' && ok "Reverse path filtering enabled" || warn "RP filter not set"
 else
     warn "Kernel hardening config missing (run harden-os.sh)"

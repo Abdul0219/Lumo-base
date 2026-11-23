@@ -21,9 +21,11 @@ if id "$OPERATOR" &>/dev/null; then
 else
     echo "[1/4] creating operator user '$OPERATOR'"
     useradd -m -s /bin/bash "$OPERATOR"
-    # Force a password for sudo; the operator sets a strong one interactively
-    echo "Set a strong sudo password for $OPERATOR:"
-    passwd "$OPERATOR"
+    # Set a temporary password (operator should change it with passwd)
+    TEMP_PASS="${LUMO_OPERATOR_TEMP_PASS:-$(openssl rand -base64 18)}"
+    echo "$OPERATOR:$TEMP_PASS" | chpasswd
+    echo "  Temporary password set for $OPERATOR (change with 'passwd $OPERATOR')"
+    echo "  Temp pass: $TEMP_PASS"
 fi
 
 # ---------------------------------------------------------------- sudo access
@@ -68,3 +70,5 @@ echo "THEN: sh deploy/vps/install-docker.sh"
 echo ""
 echo "IMPORTANT: Test SSH login as $OPERATOR from your workstation BEFORE closing"
 echo "the root session. If you cannot log in as $OPERATOR, fix the SSH key first."
+echo ""
+echo "After verifying operator access, root SSH will be fully disabled."
