@@ -29,10 +29,11 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# Source env vars we need (safe subset)
-set -a
-. "$ENV_FILE"
-set +a
+# Source env vars we need (safe subset — only extract specific vars)
+PROXY_DOMAIN="$(grep -E '^PROXY_DOMAIN=' "$ENV_FILE" | cut -d= -f2-)"
+API_GW_HTTP_PORT="$(grep -E '^API_GW_HTTP_PORT=' "$ENV_FILE" | cut -d= -f2-)"
+CERTBOT_EMAIL="$(grep -E '^CERTBOT_EMAIL=' "$ENV_FILE" | cut -d= -f2-)"
+export PROXY_DOMAIN API_GW_HTTP_PORT CERTBOT_EMAIL
 
 if [ -z "${PROXY_DOMAIN:-}" ] || [ "$PROXY_DOMAIN" = "your-domain.example.com" ]; then
   echo "FAIL: PROXY_DOMAIN is not set or still has the placeholder value." >&2
@@ -60,9 +61,44 @@ sudo chown -R "$(id -u):$(id -g)" "$CADDY_DATA" "$CADDY_CONFIG" "$CADDY_LOGS"
 RUN_CADDYFILE="/tmp/lumo-caddyfile"
 
 if [ "$STAGING" = "1" ]; then
-  # In staging mode, use Caddy's internal CA (no Let's Encrypt)
-  sed 's/{$PROXY_DOMAIN}/:443/' "$CADDYFILE" | \
-    sed 's/email {.*}/tls internal/' > "$RUN_CADDYFILE"
+  # In staging mode, serve on the VPS IP with internal CA (no Let's Encrypt)
+  # Generate a clean staging Caddyfile
+  cat > "$RUN_CADDYFILE" << CADDYEOF
+{
+	admin off
+}
+
+$PROXY_DOMAIN:443 {
+	tls internal
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:${API_PORT} {
+		header_up X-Forwarded-Proto https
+		header_up X-Forwarded-Host {host}
+	}
+
+	log {
+		output file /var/log/caddy/lumo-base.log {
+			roll_size 10MiB
+			roll_keep 3
+			roll_compress
+		}
+		format console
+	}
+}
+
+:80 {
+	redir https://{host}{uri}
+}
+CADDYEOF
   echo "  NOTE: staging mode — browser will show a cert warning. Use for testing only."
 else
   cp "$CADDYFILE" "$RUN_CADDYFILE"

@@ -45,8 +45,8 @@ case "$CMD" in
   start)
     require_approval "phase2"
     plan
-    sh "$ROOT/scripts/verify-manifest.sh"
-    sh "$ROOT/scripts/check-secrets.sh"
+    bash "$ROOT/scripts/verify-manifest.sh"
+    bash "$ROOT/scripts/check-secrets.sh"
     echo "== starting (Phase 2 approved) =="
     docker compose --env-file "$ENV_FILE" up -d --wait
     docker compose --env-file "$ENV_FILE" ps

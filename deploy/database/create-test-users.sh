@@ -23,9 +23,9 @@ ENV_FILE="$ROOT/deploy/env/.env"
 
 # ---- load env ---------------------------------------------------------------
 if [ -f "$ENV_FILE" ]; then
-  set -a
-  . "$ENV_FILE"
-  set +a
+  SERVICE_ROLE_KEY="$(grep -E '^SERVICE_ROLE_KEY=' "$ENV_FILE" | cut -d= -f2-)"
+  SUPABASE_PUBLIC_URL="$(grep -E '^SUPABASE_PUBLIC_URL=' "$ENV_FILE" | cut -d= -f2-)"
+  export SERVICE_ROLE_KEY SUPABASE_PUBLIC_URL
 fi
 
 : "${SERVICE_ROLE_KEY:?SERVICE_ROLE_KEY must be set in deploy/env/.env}"
@@ -50,8 +50,8 @@ create_user() {
   local email="$1"
   local password="$2"
 
-  # Try to create the user via admin API
-  RESPONSE=$(curl -s -w '\n%{http_code}' \
+  # Try to create the user via admin API (-k for staging TLS)
+  RESPONSE=$(curl -sk -w '\n%{http_code}' \
     -X POST "$AUTH_URL/admin/users" \
     -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
     -H "apikey: $SERVICE_ROLE_KEY" \
@@ -74,7 +74,7 @@ create_user() {
   # If user already exists, try to get their UUID via admin list
   if [ "$HTTP_CODE" = "422" ]; then
     echo "  (user already exists, fetching UUID...)" >&2
-    LIST_RESPONSE=$(curl -s \
+    LIST_RESPONSE=$(curl -sk \
       "$AUTH_URL/admin/users" \
       -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
       -H "apikey: $SERVICE_ROLE_KEY" \

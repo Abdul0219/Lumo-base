@@ -21,7 +21,23 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-: "${LUMO_DB_URL:?LUMO_DB_URL must be set (postgres superuser connection, injected at runtime)}"
+# psql runner — uses docker exec if psql is not on the host
+PSQL_CONTAINER="supabase-db"
+if command -v psql >/dev/null 2>&1; then
+  PSQL() { psql "$LUMO_DB_URL" "$@"; }
+else
+  PSQL() { docker exec -i "$PSQL_CONTAINER" psql -U postgres -d postgres "$@"; }
+fi
+
+# If LUMO_DB_URL is not set, default to docker exec
+if [ -z "${LUMO_DB_URL:-}" ]; then
+  if ! command -v psql >/dev/null 2>&1; then
+    : # will use docker exec via PSQL()
+  else
+    echo "FAIL: LUMO_DB_URL not set and psql available but no connection string" >&2
+    exit 1
+  fi
+fi
 
 # ---- files in order ---------------------------------------------------------
 MIGRATIONS=(
@@ -52,10 +68,18 @@ for f in "${MIGRATIONS[@]}"; do
   # by running in a transaction that we roll back. However, the migrations
   # contain CREATE POLICY with DROP IF EXISTS which is idempotent.
   # We apply directly with ON_ERROR_STOP=1.
-  psql "$LUMO_DB_URL" \
-    -v ON_ERROR_STOP=1 \
-    --single-transaction \
-    -f "$f"
+  # If using docker exec, pipe the file via stdin; otherwise use -f
+  if command -v psql >/dev/null 2>&1; then
+    PSQL \
+      -v ON_ERROR_STOP=1 \
+      --single-transaction \
+      -f "$f"
+  else
+    docker exec -i "$PSQL_CONTAINER" psql -U postgres -d postgres \
+      -v ON_ERROR_STOP=1 \
+      --single-transaction \
+      < "$f"
+  fi
 
   echo "OK: $BASENAME applied"
   echo ""
@@ -65,7 +89,7 @@ done
 echo "== post-apply verification =="
 
 # Check RLS is enabled on all app tables
-RLS_CHECK=$(psql "$LUMO_DB_URL" -t -A -c "
+RLS_CHECK=$(PSQL -t -A -c "
   SELECT relname, relrowsecurity
   FROM pg_class
   WHERE relnamespace = 'app'::regnamespace
@@ -83,7 +107,7 @@ echo "$RLS_CHECK" | while IFS='|' read -r tbl rls; do
 done
 
 # Check SECURITY DEFINER functions have safe search_path
-FUNC_CHECK=$(psql "$LUMO_DB_URL" -t -A -c "
+FUNC_CHECK=$(PSQL -t -A -c "
   SELECT p.proname, p.prosecdef, pg_get_functiondef(p.oid) ~ 'set search_path = '''
   FROM pg_proc p
   JOIN pg_namespace n ON p.pronamespace = n.oid
@@ -107,7 +131,7 @@ else
 fi
 
 # Check GRANTs summary
-GRANT_CHECK=$(psql "$LUMO_DB_URL" -t -A -c "
+GRANT_CHECK=$(PSQL -t -A -c "
   SELECT table_name, grantee, string_agg(privilege_type, ',')
   FROM information_schema.role_table_grants
   WHERE table_schema = 'app'

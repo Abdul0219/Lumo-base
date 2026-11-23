@@ -99,8 +99,9 @@ BEGIN;
     json_build_object('role', 'authenticated', 'sub', (SELECT val::text FROM lumo_test.fixture WHERE key = 'user_c'))::text, true);
 
   SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.documents),  'C sees zero documents from workspace A');
-  SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.workspaces), 'C sees zero workspaces');
-  SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.memberships),'C sees zero memberships');
+  SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.workspaces WHERE id = (SELECT val FROM lumo_test.fixture WHERE key = 'ws_a')), 'C cannot see workspace A');
+  SELECT lumo_test.assert_true((SELECT count(*) = 1 FROM app.workspaces WHERE id = (SELECT val FROM lumo_test.fixture WHERE key = 'ws_b')), 'C can see own workspace B');
+  SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.memberships WHERE workspace_id = (SELECT val FROM lumo_test.fixture WHERE key = 'ws_a')), 'C sees zero memberships in workspace A');
 
   DO $$
   BEGIN
@@ -125,8 +126,21 @@ ROLLBACK;
 -- ------------------------------------------------------------------ anon
 BEGIN;
   SET LOCAL ROLE anon;
-  SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.documents), 'anon sees zero documents');
-  SELECT lumo_test.assert_true((SELECT count(*) = 0 FROM app.workspaces), 'anon sees zero workspaces');
+  DO $$
+  BEGIN
+    BEGIN
+      PERFORM count(*) FROM app.documents;
+      RAISE EXCEPTION 'RLS TEST FAILED: anon can query app.documents';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    PERFORM lumo_test.assert_true(true, 'anon denied schema access (documents)');
+    BEGIN
+      PERFORM count(*) FROM app.workspaces;
+      RAISE EXCEPTION 'RLS TEST FAILED: anon can query app.workspaces';
+    EXCEPTION WHEN insufficient_privilege THEN NULL;
+    END;
+    PERFORM lumo_test.assert_true(true, 'anon denied schema access (workspaces)');
+  END $$;
 ROLLBACK;
 
 -- ------------------------------------------------------------------ service_role

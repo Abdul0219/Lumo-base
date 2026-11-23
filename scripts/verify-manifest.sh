@@ -20,6 +20,10 @@ ok = True
 for entry in lock["images"]:
     image, tag = entry["image"], entry["tag"]
     actual = found.get(image)
+    # Operator-managed images (e.g. Caddy) are not in the upstream compose
+    if entry.get("note", "") and actual is None:
+        print(f"OK  {image}:{tag} (operator-managed, not in upstream compose)")
+        continue
     state = "OK " if actual == tag else "FAIL"
     print(f"{state} {image}:{tag} (vendored: {actual})")
     if actual != tag: ok = False

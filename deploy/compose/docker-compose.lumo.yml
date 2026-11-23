@@ -47,6 +47,12 @@ services:
   storage:
     mem_limit: 256M
     logging: *lumo-logging
+    # Override depends_on: remove imgproxy dependency (it's in the optional profile)
+    depends_on: !override
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
 
   api-gw:
     # Upstream binds 8000 on all interfaces. Only Caddy (443) is public.
@@ -63,10 +69,6 @@ services:
     # NOTE: upstream postgres-meta has no healthcheck in this release.
     # Do not invent one here; health is inferred from studio + rest readiness.
     mem_limit: 128M
-    logging: *lumo-logging
-
-  db-config:
-    mem_limit: 64M
     logging: *lumo-logging
 
   # ---- deferred: opt in with `--profile optional` only after a phase gate -----

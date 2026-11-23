@@ -65,14 +65,14 @@ echo "OK: Docker Compose $COMPOSE_VERSION"
 
 # 6. Manifest parity
 echo "== verifying manifest =="
-sh "$ROOT/scripts/verify-manifest.sh" || {
+bash "$ROOT/scripts/verify-manifest.sh" || {
   echo "FAIL: manifest verification failed." >&2
   exit 1
 }
 
 # 7. Secret hygiene
 echo "== checking secrets =="
-sh "$ROOT/scripts/check-secrets.sh" || {
+bash "$ROOT/scripts/check-secrets.sh" || {
   echo "FAIL: secret hygiene check failed." >&2
   exit 1
 }
